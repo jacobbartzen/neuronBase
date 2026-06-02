@@ -1,158 +1,37 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <math.h>
-#include <time.h>
+#include "neuralNetwork.h"
 
-//Data
-#define DATA_SIZE 20                //Amount of Data Points
-#define INPUT_SIZE 3                //Number of Different Inputs / Parameters
-#define TRAINING_SIZE 15            //How many data points to use for training
-#define TESTING_SIZE (DATA_SIZE - TRAINING_SIZE)
+dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int trainingSize) {
+    dataSet *data = malloc(sizeof(dataSet));
+    data->dataSize    = dataSize;
+    data->inputSize   = inputSize;
+    data->trainingSize = trainingSize;
+    data->testingSize  = dataSize - trainingSize;
 
-typedef struct {
+    // Copy labels
+    data->y = malloc(sizeof(float) * dataSize);
+    memcpy(data->y, y, sizeof(float) * dataSize);
 
-    //Parameters
-    float ***W;
-    float **B;
+    // Build float** from the flat row-major layout of the user's 2D array
+    data->x = malloc(sizeof(float *) * dataSize);
+    for (int i = 0; i < dataSize; i++) {
+        data->x[i] = malloc(sizeof(float) * inputSize);
+        memcpy(data->x[i], xFlat + i * inputSize, sizeof(float) * inputSize);
+    }
 
-    //Adam Optimizer Parameters
-    float ***Velocity;
-    float **VelocityB;
-    float ***Scaling;
-    float **ScalingB;
-
-    //Values
-    float **Z;
-    float **A;
-    float **D;
-    float *maxValues;
-    int layers;
-    int *neuronLayers;
-
-    //Training
-    int EPOCHS;                  //Amount of Times to Go Through Entire Dataset
-    float LEARNING_RATE;            //How Fast Weights change based on Error
-    int PRINT_INTERVAL;           //How Often to Print Results (in Epochs)
-    int MIN_STOPPING_EPOCH;        //Minimum Epochs before Early Stopping can Occur
-
-    //Feature Hyperparameters
-    float dropoutChance;           //Chance to drop each neuron during training - 0 is 0%, 1 is 100% change of dropping
-    float maxNorm;                  //Maximum norm for weights if maxNormRegulation is enabled
-    float momentumDecay;           //Momentum factor
-    float scalingDecay;          //Scaling factor for learning rate decay
-    float clip;                    //Value to clip gradients for sigmoid activation function to prevent exploding gradients
-
-    //Features
-    bool earlyStopping;          //Whether to Stop Training if Error stops decreasing
-    bool dropout;                //Whether to randomly drop neurons during training to prevent overfitting
-    bool maxNormRegulation;      //Whether to cap weights to prevent exploding gradients and overfitting
-
-    //Optimizer
-    char optimizer;
-    //A = Adam Optimizer | Optimal Learning Rate = 0.0003
-    //R = RMSProp        | Optimal Learning Rate = 0.00005
-    //M = Momentum       | Optimal Learning Rate = 0.5
-    //N = None           | Optimal Learning Rate = 0.2
-
-    //Activation Function
-    char activationFunction;
-    //L = Leaky ReLU
-    //R = ReLU
-    //S = Sigmoid
-
-} Network;
-
-//Function Prototypes
-void testNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]);
-void freeMemory(Network *net);
-float predictOutput(Network *net, float *Inputs);
-Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]);
-void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]);
-
-int main() {
-
-    //INPUTS: Sq footage, bedrooms, yard size
-    float x[DATA_SIZE][INPUT_SIZE] = {
-        {850, 1, 500},
-        {1200, 2, 1000},
-        {950, 2, 750},
-        {1800, 3, 1500},
-        {2200, 4, 2000},
-        {1500, 3, 1200},
-        {3000, 5, 3000},
-        {1100, 2, 800},
-        {2600, 4, 2500},
-        {700, 1, 400},
-        {1750, 3, 1300},
-        {2900, 4, 2800},
-        {1350, 2, 900},
-        {2100, 3, 1600},
-        {500, 1, 600},
-        {1650, 3, 1400},
-        {2400, 4, 2200},
-        {1050, 2, 850},
-        {3200, 5, 3500},
-        {1900, 3, 1800}};
-
-    //Ex. Result Price ($)
-    //Linear Labels
-    //float y[] = {120000, 185000, 140000, 280000, 350000, 230000, 500000, 160000, 420000, 95000, 270000, 470000, 200000, 330000, 75000, 255000, 390000, 155000, 540000, 300000};
-
-    //Non-Linear Labels
-    float y[] = {95000, 210000, 125000, 480000, 890000, 370000, 2100000, 175000, 1400000, 72000, 460000, 1850000, 240000, 750000, 52000, 420000, 1150000, 162000, 2800000, 580000};
-
-    //Architecture
-    int neuronLayers[] = {50, 20, 1};    //Array of Neuron Counts for Each Layer
-
-    //Create all variables for network
-    Network *net = creatNetwork(neuronLayers, x, y);
-
-    //Variables -- Declare any neededed
-    net->EPOCHS = 1000;                  //Amount of Times to Go Through Entire Dataset
-    net->LEARNING_RATE = 0.2;            //How Fast Weights change based on Error
-    net->PRINT_INTERVAL = 100;           //How Often to Print Results (in Epochs)
-
-    //Optimizer
-    net->optimizer = 'N';
-    //A = Adam Optimizer | Optimal Learning Rate = 0.0003
-    //R = RMSProp        | Optimal Learning Rate = 0.00005
-    //M = Momentum       | Optimal Learning Rate = 0.5
-    //N = None           | Optimal Learning Rate = 0.2
-
-    //Activation Function
-    net->activationFunction = 'L';
-    //L = Leaky ReLU
-    //R = ReLU
-    //S = Sigmoid
-
-    //Train Network
-    trainNetwork(net, x, y);
-
-    //Test Network
-    testNetwork(net, x, y);
-
-    //Try Predicting an Output
-    float test[] = {0.5, 0.5, 0.5};
-    float prediction = predictOutput(net, test);
-
-    //Free memory when program is done
-    freeMemory(net);
-
-    return 0;
+    return data;
 }
 
-Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]) {
+Network* creatNetwork(int *neuronLayers, dataSet *data, int layers) {
     Network* net = malloc(sizeof(Network));
 
     //Find Amount of Layers
-    net->layers = sizeof(neuronLayers) / sizeof(neuronLayers[0]) + 1;
+    net->layers = layers;
 
     //Architecture
     net->neuronLayers = neuronLayers;
 
     //Max Values for Normalization
-    net->maxValues = malloc(sizeof(float) * (INPUT_SIZE + 1));
+    net->maxValues = malloc(sizeof(float) * (data->inputSize + 1));
 
     // ---------- Loop to declare all arrays needed to heap ----------
     //Weights
@@ -197,14 +76,14 @@ Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y
 
         //Create 3d array for Weights and Velocity
         for (int j = 0; j < neuronLayers[i]; j++) {
-            net->W[i][j] = malloc(sizeof(float) * ((i == 0) ? INPUT_SIZE : neuronLayers[i - 1]));
-            net->Velocity[i][j] = malloc(sizeof(float) * ((i == 0) ? INPUT_SIZE : neuronLayers[i - 1]));
-            net->Scaling[i][j] = malloc(sizeof(float) * ((i == 0) ? INPUT_SIZE : neuronLayers[i - 1]));
+            net->W[i][j] = malloc(sizeof(float) * ((i == 0) ? data->inputSize : neuronLayers[i - 1]));
+            net->Velocity[i][j] = malloc(sizeof(float) * ((i == 0) ? data->inputSize : neuronLayers[i - 1]));
+            net->Scaling[i][j] = malloc(sizeof(float) * ((i == 0) ? data->inputSize : neuronLayers[i - 1]));
 
             //Set all Velocity and Scaling to 0
             net->ScalingB[i][j] = 0;
             net->VelocityB[i][j] = 0;
-            for (int k = 0; k < ((i == 0) ? INPUT_SIZE : neuronLayers[i - 1]); k++) {
+            for (int k = 0; k < ((i == 0) ? data->inputSize : neuronLayers[i - 1]); k++) {
                 net->Velocity[i][j][k] = 0;
                 net->Scaling[i][j][k] = 0;
             }
@@ -235,31 +114,31 @@ Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y
 
     // ------ Normalize Data ------
     //Set max values to 0
-    for (int i = 0; i < INPUT_SIZE + 1; i++) net->maxValues[i] = 0;
+    for (int i = 0; i < data->inputSize + 1; i++) net->maxValues[i] = 0;
 
     //Loop through data to find max of each input and output
-    for (int i = 0; i < DATA_SIZE; i++) {
+    for (int i = 0; i < data->dataSize; i++) {
 
         // Find max of inputs
-        for (int j = 0; j < INPUT_SIZE; j++) {
-            if (x[i][j] > net->maxValues[j])
-                net->maxValues[j] = x[i][j];
+        for (int j = 0; j < data->inputSize; j++) {
+            if (data->x[i][j] > net->maxValues[j])
+                net->maxValues[j] = data->x[i][j];
         }
 
         // Find max of outputs
-        if (y[i] > net->maxValues[INPUT_SIZE])
-            net->maxValues[INPUT_SIZE] = y[i];
+        if (data->y[i] > net->maxValues[data->inputSize])
+            net->maxValues[data->inputSize] = data->y[i];
     }
 
     // Loop through all data and divide by max
-    for (int i = 0; i < DATA_SIZE; i++) {
+    for (int i = 0; i < data->dataSize; i++) {
 
         // Divide inputs by max
-        for (int j = 0; j < INPUT_SIZE; j++)
-            x[i][j] /= net->maxValues[j];
+        for (int j = 0; j < data->inputSize; j++)
+            data->x[i][j] /= net->maxValues[j];
 
         // Divide output by max
-        y[i] /= net->maxValues[INPUT_SIZE];
+        data->y[i] /= net->maxValues[data->inputSize];
     }
     printf("Data Normalized\n");
 
@@ -274,7 +153,7 @@ Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y
     for (int i = 0; i < net->layers; i++) {
 
         // Inputs size loops for first layer, previous layer size for other layesr
-        loops = (i == 0) ? INPUT_SIZE : neuronLayers[i - 1];
+        loops = (i == 0) ? data->inputSize : neuronLayers[i - 1];
 
         // Scale values based on size of previous layer - sqrt(2 / previous layer size)
         scale = sqrt(2.0f / loops);
@@ -298,7 +177,7 @@ Network* creatNetwork(int *neuronLayers, float x[DATA_SIZE][INPUT_SIZE], float y
     return net;
 }
 
-void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]) {
+void trainNetwork(Network *net, dataSet *data) {
 
     //All varibles needed later
     float eTotal = 0, eTrainingAvg = 0, lastEAvg = 1000, hiddenError = 0, scale = 0, currentGradient = 0, loops = 0, correctedA, correctedB = 0, weightLength = 0;
@@ -313,7 +192,7 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
         eTrainingAvg = 0;
 
         //Loop through each data point in training set
-        for (int i = 0; i < TRAINING_SIZE; i++) {
+        for (int i = 0; i < data->trainingSize; i++) {
 
             // --- Forward Pass ---
             //For each layer
@@ -340,7 +219,7 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
                     net->Z[j][k] = net->B[j][k];
 
                     //If first layer, add dot product of all inputs and weights
-                    if (j == 0) for (int z = 0; z < INPUT_SIZE; z++) net->Z[j][k] += x[i][z] * net->W[j][k][z];
+                    if (j == 0) for (int z = 0; z < data->inputSize; z++) net->Z[j][k] += data->x[i][z] * net->W[j][k][z];
 
                     //If not first layer, add dot product of all activations from previous layer and weights
                     else for (int z = 0; z < net->neuronLayers[j - 1]; z++) net->Z[j][k] += net->A[j - 1][z] * net->W[j][k][z];
@@ -372,10 +251,10 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
             }
 
             //Calculate Total Error: Label - Preactivation Output Neuron Value
-            eTotal = y[i] - net->Z[net->layers - 1][0];
+            eTotal = data->y[i] - net->Z[net->layers - 1][0];
 
             //Calculate Average Error for Prints
-            eTrainingAvg += fabs(eTotal / y[i]);
+            eTrainingAvg += fabs(eTotal / data->y[i]);
 
             // --- Backpropagation ---
 
@@ -477,13 +356,13 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
                     }
                     
                     //Loops needed to update all weights
-                    loops = (j == 0) ? INPUT_SIZE : net->neuronLayers[j - 1];
+                    loops = (j == 0) ? data->inputSize : net->neuronLayers[j - 1];
 
                     //For each weight
                     for (int z = 0; z < loops; z++) {
                         
                         //Calculate current gradient
-                        currentGradient = (j == 0) ? net->D[j][k] * x[i][z] : net->D[j][k] * net->A[j - 1][z];
+                        currentGradient = (j == 0) ? net->D[j][k] * data->x[i][z] : net->D[j][k] * net->A[j - 1][z];
 
                         //Update Weights
                         switch (net->optimizer) {
@@ -496,8 +375,8 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
                                 net->Scaling[j][k][z] = net->scalingDecay * net->Scaling[j][k][z] + (1 - net->scalingDecay) * currentGradient * currentGradient;
 
                                 //Bias Correction for Adam
-                                correctedA = net->Velocity[j][k][z] / (1 - pow(net->momentumDecay, TRAINING_SIZE * epoch));
-                                correctedB = net->Scaling[j][k][z] / (1 - pow(net->scalingDecay, TRAINING_SIZE * epoch));
+                                correctedA = net->Velocity[j][k][z] / (1 - pow(net->momentumDecay, data->trainingSize * epoch));
+                                correctedB = net->Scaling[j][k][z] / (1 - pow(net->scalingDecay, data->trainingSize * epoch));
 
                                 //Update Weight with Adam
                                 net->W[j][k][z] += net->LEARNING_RATE / (sqrt(correctedB) + 1e-8) * correctedA;
@@ -545,7 +424,7 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
         }
 
         //Calculate Average Error for Epoch
-        eTrainingAvg = eTrainingAvg / TRAINING_SIZE * 100;
+        eTrainingAvg = eTrainingAvg / data->trainingSize * 100;
 
         //Mark continuous timing and calculate total runtime
         clock_t end = clock();
@@ -575,12 +454,12 @@ void trainNetwork(Network *net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZ
     }
 }
 
-void testNetwork(Network*net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]) {
+void testNetwork(Network*net, dataSet *data) {
 
     float eTestingAvg = 0;
 
     //Loop through testing data
-    for (int i = TRAINING_SIZE; i < DATA_SIZE; i++) {
+    for (int i = data->trainingSize; i < data->dataSize; i++) {
 
         // For each layer
         for (int j = 0; j < net->layers; j++) {
@@ -592,7 +471,7 @@ void testNetwork(Network*net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]
                 net->Z[j][k] = net->B[j][k];
 
                 //If first layer, use inputs
-                if (j == 0) for (int z = 0; z < INPUT_SIZE; z++) net->Z[j][k] += x[i][z] * net->W[j][k][z];
+                if (j == 0) for (int z = 0; z < data->inputSize; z++) net->Z[j][k] += data->x[i][z] * net->W[j][k][z];
 
                 //Else, use outputs from previous layer
                 else for (int z = 0; z < net->neuronLayers[j - 1]; z++) net->Z[j][k] += net->A[j - 1][z] * net->W[j][k][z];
@@ -624,16 +503,16 @@ void testNetwork(Network*net, float x[DATA_SIZE][INPUT_SIZE], float y[DATA_SIZE]
         }
 
         //Calculate Abs Average Error
-        eTestingAvg += fabs((y[i] - net->Z[net->layers - 1][0]) / y[i]);
+        eTestingAvg += fabs((data->y[i] - net->Z[net->layers - 1][0]) / data->y[i]);
     }
 
     //Calculate Average Error for Epoch
-    eTestingAvg = (eTestingAvg / TESTING_SIZE) * 100;
+    eTestingAvg = (eTestingAvg / data->testingSize) * 100;
 
     printf("Testing Average Error: %.2f\n", eTestingAvg);
 }
 
-float predictOutput(Network *net, float *Inputs) {
+float predictOutput(Network *net, float *Inputs, dataSet *data) {
  
     //For each layer
     for (int j = 0; j < net->layers; j++) {
@@ -645,7 +524,7 @@ float predictOutput(Network *net, float *Inputs) {
             net->Z[j][k] = net->B[j][k];
 
             //If first layer, use inputs
-            if (j == 0) for (int z = 0; z < INPUT_SIZE; z++) net->Z[j][k] += Inputs[z] * net->W[j][k][z];
+            if (j == 0) for (int z = 0; z < data->inputSize; z++) net->Z[j][k] += Inputs[z] * net->W[j][k][z];
 
             //Else, use outputs from previous layer
             else for (int z = 0; z < net->neuronLayers[j - 1]; z++) net->Z[j][k] += net->A[j - 1][z] * net->W[j][k][z];
@@ -681,6 +560,14 @@ float predictOutput(Network *net, float *Inputs) {
 
     //Return Final Output
     return net->Z[net->layers - 1][0];
+}
+
+void freeDataSet(dataSet *data) {
+    for (int i = 0; i < data->dataSize; i++)
+        free(data->x[i]);
+    free(data->x);
+    free(data->y);
+    free(data);
 }
 
 void freeMemory(Network *net) {
