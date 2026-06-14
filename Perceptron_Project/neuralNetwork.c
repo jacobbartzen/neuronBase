@@ -1,5 +1,68 @@
 #include "neuralNetwork.h"
 
+dataSet* loadCSV(const char *filename, int labelCol, int inputSize, int trainingSize) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(stderr, "Error: Could not open %s\n", filename);
+        return NULL;
+    }
+
+    char line[1024];
+    int dataSize = 0;
+
+    // First pass - count rows (skip header)
+    fgets(line, sizeof(line), file);  // skip header
+    while (fgets(line, sizeof(line), file)) dataSize++;
+
+    // Allocate
+    float **x = malloc(dataSize * sizeof(float*));
+    float *y = malloc(dataSize * sizeof(float));
+    for (int i = 0; i < dataSize; i++) x[i] = malloc(inputSize * sizeof(float));
+
+    // Second pass - read data
+    rewind(file);
+    fgets(line, sizeof(line), file);  // skip header again
+
+    int row = 0;
+    while (fgets(line, sizeof(line), file)) {
+
+        int col = 0;
+        char *start = line;
+
+        for (char *p = line; ; p++) {
+            if (*p == ',' || *p == '\n' || *p == '\r' || *p == '\0') {
+                char saved = *p;
+                *p = '\0';
+
+                // Empty field becomes 0.0, otherwise parse the number
+                float value = (p == start) ? 0.0f : atof(start);
+
+                if (col == labelCol) y[row] = value;
+                else if (col < inputSize) x[row][col] = value;
+
+                col++;
+                start = p + 1;
+
+                if (saved == '\n' || saved == '\0') break;
+            }
+        }
+
+        row++;
+    }
+
+    fclose(file);
+
+    dataSet *data = malloc(sizeof(dataSet));
+    data->x = x;
+    data->y = y;
+    data->dataSize = dataSize;
+    data->inputSize = inputSize;
+    data->trainingSize = trainingSize;
+    data->testingSize = dataSize - trainingSize;
+
+    return data;
+}
+
 dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int trainingSize) {
     dataSet *data = malloc(sizeof(dataSet));
     data->dataSize    = dataSize;
@@ -8,14 +71,14 @@ dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int 
     data->testingSize  = dataSize - trainingSize;
 
     // Copy labels
-    data->y = malloc(sizeof(float) * dataSize);
-    memcpy(data->y, y, sizeof(float) * dataSize);
+    data->y = malloc(sizeof(float) * data->dataSize);
+    memcpy(data->y, y, sizeof(float) * data->dataSize);
 
     // Build float** from the flat row-major layout of the user's 2D array
-    data->x = malloc(sizeof(float *) * dataSize);
-    for (int i = 0; i < dataSize; i++) {
-        data->x[i] = malloc(sizeof(float) * inputSize);
-        memcpy(data->x[i], xFlat + i * inputSize, sizeof(float) * inputSize);
+    data->x = malloc(sizeof(float *) * data->dataSize);
+    for (int i = 0; i < data->dataSize; i++) {
+        data->x[i] = malloc(sizeof(float) * data->inputSize);
+        memcpy(data->x[i], xFlat + i * data->inputSize, sizeof(float) * data->inputSize);
     }
 
     return data;
@@ -122,15 +185,15 @@ Network* createNetwork(int *neuronLayers, dataSet *data, int layers) {
 
         // Find max of inputs
         for (int j = 0; j < data->inputSize; j++) {
-            if (data->x[i][j] > net->maxValues[j])
-                net->maxValues[j] = data->x[i][j];
+            if (fabs(data->x[i][j]) > net->maxValues[j])
+                net->maxValues[j] = fabs(data->x[i][j]);
         }
 
         // Find max of outputs
-        if (data->y[i] > net->maxValues[data->inputSize])
-            net->maxValues[data->inputSize] = data->y[i];
+        if (fabs(data->y[i]) > net->maxValues[data->inputSize])
+            net->maxValues[data->inputSize] = fabs(data->y[i]);
     }
-
+    
     // Loop through all data and divide by max
     for (int i = 0; i < data->dataSize; i++) {
 
@@ -258,7 +321,6 @@ void trainNetwork(Network *net, dataSet *data) {
             eTrainingAvg += fabs(eTotal / data->y[i]);
 
             // --- Backpropagation ---
-
             //Step 1: Calculate Blame for every neuron, starting with output layer
 
             //For output layer, delta is total error
@@ -385,6 +447,7 @@ void trainNetwork(Network *net, dataSet *data) {
 
                             //RMSProp Optimizer
                             case 'R':
+                            
                                 //Calculate 2nd moment
                                 net->Scaling[j][k][z] = net->scalingDecay * net->Scaling[j][k][z] + (1 - net->scalingDecay) * currentGradient * currentGradient;
 
@@ -435,7 +498,7 @@ void trainNetwork(Network *net, dataSet *data) {
         if (epoch % net->PRINT_INTERVAL == 0) {
 
             //Print Epoch, Average Error, Runtime, and Result
-            printf("Epoch: %i | Average Error: %.4f | Runtime: %.1f | Result: %.3f\n", epoch, eTrainingAvg, runtime * 1000, net->Z[net->layers - 1][0]);
+            printf("Epoch: %i | Average Error: %.4f | Runtime: %.1f | Result: %.4f | Expected: %.4f | Total Error: %.4f \n", epoch, eTrainingAvg, runtime * 1000, net->Z[net->layers - 1][0], data->y[0], eTotal);
 
             //for (int j = 0; j < net->layers; j++) {
             //   for (int k = 0; k < neuronLayers[j]; k++) {

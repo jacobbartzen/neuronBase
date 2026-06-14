@@ -7,7 +7,7 @@
 
 //Data
 #define DATA_SIZE 20                //Amount of Data Points
-#define INPUT_SIZE 3                //Number of Different Inputs / Parameters
+#define INPUT_SIZE 8                //Number of Different Inputs / Parameters
 #define TRAINING_SIZE 15            //How many data points to use for training
 
 //Network Struct
@@ -76,6 +76,7 @@ typedef struct {
 } dataSet;
 
 //Function Prototypes
+dataSet* loadCSV(const char *filename, int labelCol, int inputSize, int trainingSize);
 dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int trainingSize);
 void freeDataSet(dataSet *data);
 
@@ -89,6 +90,12 @@ int saveWeights(Network *net, const char *filename);
 int loadWeights(Network *net, const char *filename);
 
 int main() {
+
+    dataSet *data = loadCSV("housing.csv", 8, INPUT_SIZE, TRAINING_SIZE);
+
+    //Architecture
+    int neuronLayers[] = {50, 10, 1};    //Array of Neuron Counts for Each Layer
+    int layers = 3;
 
     //INPUTS: Sq footage, bedrooms, yard size
     float x[DATA_SIZE][INPUT_SIZE] = {
@@ -114,15 +121,7 @@ int main() {
         {1900, 3, 1800}};
 
     //Ex. Result Price ($)
-    //Linear Labels
-    //float y[] = {120000, 185000, 140000, 280000, 350000, 230000, 500000, 160000, 420000, 95000, 270000, 470000, 200000, 330000, 75000, 255000, 390000, 155000, 540000, 300000};
-
-    //Non-Linear Labels
     float y[] = {95000, 210000, 125000, 480000, 890000, 370000, 2100000, 175000, 1400000, 72000, 460000, 1850000, 240000, 750000, 52000, 420000, 1150000, 162000, 2800000, 580000};
-
-    //Architecture
-    int neuronLayers[] = {50, 20, 1};    //Array of Neuron Counts for Each Layer
-    int layers = 3;
 
     //Copy data to seperate struct and heap allocate
     dataSet *data = createDataSet((float *)x, y, DATA_SIZE, INPUT_SIZE, TRAINING_SIZE);
@@ -132,12 +131,24 @@ int main() {
 
     // -------- Variables ----- 
     //Declare any neededed. All variables have default values set in createNetwork function, but can be changed here. More features and variables can be found in createNetwork for more advanced control.
+    //Training
     net->EPOCHS = 1000;                  //Amount of Times to Go Through Entire Dataset
-    net->LEARNING_RATE = 0.2;            //How Fast Weights change based on Error
-    net->PRINT_INTERVAL = 100;           //How Often to Print Results (in Epochs)
+    net->LEARNING_RATE = 0.0003;            //How Fast Weights change based on Error
+    net->PRINT_INTERVAL = 50;           //How Often to Print Results (in Epochs)
+    net->MIN_STOPPING_EPOCH = 50;        //Minimum Epochs before Early Stopping can Occur
+    net->dropoutChance = 0.5;            //Chance to drop each neuron during training - 0 is 0%, 1 is 100% change of dropping
+    net->maxNorm = 10.0;                  //Maximum norm for weights if maxNormRegulation is enabled
+    net->momentumDecay = 0.90;           //Momentum factor
+    net->scalingDecay = 0.990;           //Scaling factor for learning rate decay
+    net->clip = 0.5f;                    //Value to clip gradients for sigmoid activation function to prevent exploding gradients
+
+    //Features
+    net->earlyStopping = false;          //Whether to Stop Training if Error stops decreasing
+    net->dropout = false;                //Whether to randomly drop neurons during training to prevent overfitting
+    net->maxNormRegulation = false;       //Whether to cap weights to prevent exploding gradients and overfitting
 
     //Optimizer
-    net->optimizer = 'N';
+    net->optimizer = 'A';
     //A = Adam Optimizer | Optimal Learning Rate = 0.0003
     //R = RMSProp        | Optimal Learning Rate = 0.00005
     //M = Momentum       | Optimal Learning Rate = 0.5
@@ -150,13 +161,13 @@ int main() {
     //S = Sigmoid
 
     //Load Weights
-    if (loadWeights(net, "networkWeights.bin")) printf("Weights loaded successfully.\n");
+    //if (loadWeights(net, "networkWeights.bin")) printf("Weights loaded successfully.\n");
 
     //Train Network
     trainNetwork(net, data);
 
     //Save Weights
-    if (saveWeights(net, "networkWeights.bin")) printf("Weights saved successfully.\n");
+    //if (saveWeights(net, "networkWeights.bin")) printf("Weights saved successfully.\n");
 
     //Test Network
     testNetwork(net, data);
@@ -173,6 +184,69 @@ int main() {
     return 0;
 }
 
+dataSet* loadCSV(const char *filename, int labelCol, int inputSize, int trainingSize) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(stderr, "Error: Could not open %s\n", filename);
+        return NULL;
+    }
+
+    char line[1024];
+    int dataSize = 0;
+
+    // First pass - count rows (skip header)
+    fgets(line, sizeof(line), file);  // skip header
+    while (fgets(line, sizeof(line), file)) dataSize++;
+
+    // Allocate
+    float **x = malloc(dataSize * sizeof(float*));
+    float *y = malloc(dataSize * sizeof(float));
+    for (int i = 0; i < dataSize; i++) x[i] = malloc(inputSize * sizeof(float));
+
+    // Second pass - read data
+    rewind(file);
+    fgets(line, sizeof(line), file);  // skip header again
+
+    int row = 0;
+    while (fgets(line, sizeof(line), file)) {
+
+        int col = 0;
+        char *start = line;
+
+        for (char *p = line; ; p++) {
+            if (*p == ',' || *p == '\n' || *p == '\r' || *p == '\0') {
+                char saved = *p;
+                *p = '\0';
+
+                // Empty field becomes 0.0, otherwise parse the number
+                float value = (p == start) ? 0.0f : atof(start);
+
+                if (col == labelCol) y[row] = value;
+                else if (col < inputSize) x[row][col] = value;
+
+                col++;
+                start = p + 1;
+
+                if (saved == '\n' || saved == '\0') break;
+            }
+        }
+
+        row++;
+    }
+
+    fclose(file);
+
+    dataSet *data = malloc(sizeof(dataSet));
+    data->x = x;
+    data->y = y;
+    data->dataSize = dataSize;
+    data->inputSize = inputSize;
+    data->trainingSize = trainingSize;
+    data->testingSize = dataSize - trainingSize;
+
+    return data;
+}
+
 dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int trainingSize) {
     dataSet *data = malloc(sizeof(dataSet));
     data->dataSize    = dataSize;
@@ -181,14 +255,14 @@ dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int 
     data->testingSize  = dataSize - trainingSize;
 
     // Copy labels
-    data->y = malloc(sizeof(float) * dataSize);
-    memcpy(data->y, y, sizeof(float) * dataSize);
+    data->y = malloc(sizeof(float) * data->dataSize);
+    memcpy(data->y, y, sizeof(float) * data->dataSize);
 
     // Build float** from the flat row-major layout of the user's 2D array
-    data->x = malloc(sizeof(float *) * dataSize);
-    for (int i = 0; i < dataSize; i++) {
-        data->x[i] = malloc(sizeof(float) * inputSize);
-        memcpy(data->x[i], xFlat + i * inputSize, sizeof(float) * inputSize);
+    data->x = malloc(sizeof(float *) * data->dataSize);
+    for (int i = 0; i < data->dataSize; i++) {
+        data->x[i] = malloc(sizeof(float) * data->inputSize);
+        memcpy(data->x[i], xFlat + i * data->inputSize, sizeof(float) * data->inputSize);
     }
 
     return data;
@@ -295,15 +369,15 @@ Network* createNetwork(int *neuronLayers, dataSet *data, int layers) {
 
         // Find max of inputs
         for (int j = 0; j < data->inputSize; j++) {
-            if (data->x[i][j] > net->maxValues[j])
-                net->maxValues[j] = data->x[i][j];
+            if (fabs(data->x[i][j]) > net->maxValues[j])
+                net->maxValues[j] = fabs(data->x[i][j]);
         }
 
         // Find max of outputs
-        if (data->y[i] > net->maxValues[data->inputSize])
-            net->maxValues[data->inputSize] = data->y[i];
+        if (fabs(data->y[i]) > net->maxValues[data->inputSize])
+            net->maxValues[data->inputSize] = fabs(data->y[i]);
     }
-
+    
     // Loop through all data and divide by max
     for (int i = 0; i < data->dataSize; i++) {
 
@@ -431,7 +505,6 @@ void trainNetwork(Network *net, dataSet *data) {
             eTrainingAvg += fabs(eTotal / data->y[i]);
 
             // --- Backpropagation ---
-
             //Step 1: Calculate Blame for every neuron, starting with output layer
 
             //For output layer, delta is total error
@@ -609,7 +682,7 @@ void trainNetwork(Network *net, dataSet *data) {
         if (epoch % net->PRINT_INTERVAL == 0) {
 
             //Print Epoch, Average Error, Runtime, and Result
-            printf("Epoch: %i | Average Error: %.4f | Runtime: %.1f | Result: %.3f\n", epoch, eTrainingAvg, runtime * 1000, net->Z[net->layers - 1][0]);
+            printf("Epoch: %i | Average Error: %.4f | Runtime: %.1f | Result: %.4f | Expected: %.4f | Total Error: %.4f \n", epoch, eTrainingAvg, runtime * 1000, net->Z[net->layers - 1][0], data->y[0], eTotal);
 
             //for (int j = 0; j < net->layers; j++) {
             //   for (int k = 0; k < neuronLayers[j]; k++) {
