@@ -7,7 +7,7 @@
 
 //Data
 #define DATA_SIZE 20                //Amount of Data Points
-#define INPUT_SIZE 8                //Number of Different Inputs / Parameters
+#define INPUT_SIZE 3                //Number of Different Inputs / Parameters
 #define TRAINING_SIZE 15            //How many data points to use for training
 
 //Network Struct
@@ -91,7 +91,7 @@ int loadWeights(Network *net, const char *filename);
 
 int main() {
 
-    dataSet *data = loadCSV("housing.csv", 8, INPUT_SIZE, TRAINING_SIZE);
+    //dataSet *data = loadCSV("housing.csv", 8, INPUT_SIZE, TRAINING_SIZE);
 
     //Architecture
     int neuronLayers[] = {50, 10, 1};    //Array of Neuron Counts for Each Layer
