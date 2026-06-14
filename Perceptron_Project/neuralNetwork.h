@@ -74,6 +74,7 @@ typedef struct {
 } dataSet;
 
 //Function Prototypes
+dataSet* loadCSV(const char *filename, int labelCol, int inputSize, int trainingSize);
 dataSet* createDataSet(float *xFlat, float *y, int dataSize, int inputSize, int trainingSize);
 void freeDataSet(dataSet *data);
 
@@ -85,6 +86,5 @@ void trainNetwork(Network *net, dataSet *data);
 
 int saveWeights(Network *net, const char *filename);
 int loadWeights(Network *net, const char *filename);
-
 
 #endif
