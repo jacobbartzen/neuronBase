@@ -168,9 +168,9 @@ Network* createNetwork(int *neuronLayers, dataSet *data, int layers) {
     net->inputSize = data->inputSize;
 
     //Features
-    net->earlyStopping = false;          //Whether to Stop Training if Error stops decreasing
-    net->dropout = false;                //Whether to randomly drop neurons during training to prevent overfitting
-    net->maxNormRegulation = true;       //Whether to cap weights to prevent exploding gradients and overfitting
+    net->earlyStopping = 0;          //Whether to Stop Training if Error stops decreasing
+    net->dropout = 0;                //Whether to randomly drop neurons during training to prevent overfitting
+    net->maxNormRegulation = 0;       //Whether to cap weights to prevent exploding gradients and overfitting
 
     //Optimizer and Activation function
     net->optimizer = 'N';

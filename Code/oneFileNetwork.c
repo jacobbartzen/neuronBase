@@ -32,10 +32,10 @@ typedef struct {
     int *neuronLayers;
 
     //Training
-    int EPOCHS;                  //Amount of Times to Go Through Entire Dataset
+    unsigned int EPOCHS;                  //Amount of Times to Go Through Entire Dataset
     float LEARNING_RATE;            //How Fast Weights change based on Error
     int PRINT_INTERVAL;           //How Often to Print Results (in Epochs)
-    int MIN_STOPPING_EPOCH;        //Minimum Epochs before Early Stopping can Occur
+    unsigned int MIN_STOPPING_EPOCH;        //Minimum Epochs before Early Stopping can Occur
     int inputSize;
 
     //Feature Hyperparameters
@@ -45,10 +45,10 @@ typedef struct {
     float scalingDecay;          //Scaling factor for learning rate decay
     float clip;                    //Value to clip gradients for sigmoid activation function to prevent exploding gradients
 
-    //Features
-    bool earlyStopping;          //Whether to Stop Training if Error stops decreasing
-    bool dropout;                //Whether to randomly drop neurons during training to prevent overfitting
-    bool maxNormRegulation;      //Whether to cap weights to prevent exploding gradients and overfitting
+    //Features (Set 1 for Yes, 0 for No)
+    int earlyStopping;          //Whether to Stop Training if Error stops decreasing
+    int dropout;                //Whether to randomly drop neurons during training to prevent overfitting
+    int maxNormRegulation;      //Whether to cap weights to prevent exploding gradients and overfitting
 
     //Optimizer
     char optimizer;
@@ -143,9 +143,9 @@ int main() {
     net->clip = 0.5f;                    //Value to clip gradients for sigmoid activation function to prevent exploding gradients
 
     //Features
-    net->earlyStopping = false;          //Whether to Stop Training if Error stops decreasing
-    net->dropout = false;                //Whether to randomly drop neurons during training to prevent overfitting
-    net->maxNormRegulation = false;       //Whether to cap weights to prevent exploding gradients and overfitting
+    net->earlyStopping = 0;          //Whether to Stop Training if Error stops decreasing
+    net->dropout = 0;                //Whether to randomly drop neurons during training to prevent overfitting
+    net->maxNormRegulation = 0;       //Whether to cap weights to prevent exploding gradients and overfitting
 
     //Optimizer
     net->optimizer = 'A';

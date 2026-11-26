@@ -20,7 +20,7 @@ int main() {
     //Declare any neededed. All variables have default values set in createNetwork function, but can be changed here. More features and variables can be found in createNetwork for more advanced control.
     net->EPOCHS = 100;                  //Amount of Times to Go Through Entire Dataset
     net->LEARNING_RATE = 0.2;            //How Fast Weights change based on Error
-    net->PRINT_INTERVAL = 1;           //How Often to Print Results (in Epochs)
+    net->PRINT_INTERVAL = 10;           //How Often to Print Results (in Epochs)
 
     //Optimizer
     net->optimizer = 'N';
@@ -35,13 +35,13 @@ int main() {
     //R = ReLU
     //S = Sigmoid
 
-    //Load Weights - Uncomment to load weights
+    //Load Weights from networkWeights.bin - Uncomment to load weights
     //if (loadWeights(net, "networkWeights.bin")) printf("Weights loaded successfully.\n");
 
     //Train Network
     trainNetwork(net, data);
 
-    //Save Weights - Uncomment to save current weights
+    //Save Weights to networkWeights.bin - Uncomment to save current weights
     //if (saveWeights(net, "networkWeights.bin")) printf("Weights saved successfully.\n");
 
     //Test Network
