@@ -1,8 +1,11 @@
-<h1 align="center">Machine Learning Library in C</h1>
+<h1 align="center">neuronBase - Machine Learning Library in C</h1>
 
 # Overview
 
-This repository features a machine learning library coded fully in C. All network parameters such as data, architecture, activation function, optimizers, and training hyperparameters are fully adjustable to the user.
+neuronBase is an adjustable neural network coded in C with no outside machine learning libraries. 
+- All variables such as input data, network size and architecture, and hyperparameters and easily adjusted. 
+- Different features, optimizers, and activation functions are included for reference. 
+- Runtime, epochs, and error is automatically tracked and printed.
 
 | File | Overview |
 | :---- | :---- |
@@ -23,13 +26,13 @@ Follow these steps to install and run the code from the library
    3. Main.c  
    4. networkWeights.bin
 
-2. If a C compiler is not currently installed, install a compiler. See the VS code guide on installing a C compiler for more information:  
+2. If a C compiler is not currently installed, install a compiler. (VS Code guide provided for reference)
    1. [https://code.visualstudio.com/docs/cpp/config-mingw](https://code.visualstudio.com/docs/cpp/config-mingw)
 
-3. In a text editor such as VS code open the terminal, navigate to the folder containing the code files, and run the command:  
+3. In a text editor open the folder containing the code files, and in the terminal run:  
    `gcc main.c neuralNetwork.c -o main -lm`
 
-4. Adjust hyperparameters such as activation function, optimizers, learning rate, epochs, and data in the file main.c. For more information see the section on hyperparameters.
+4. Adjust hyperparameters such as activation function, optimizers, learning rate, epochs, and data in the file main.c.
 
 ## Common Definitions
 
