@@ -244,9 +244,9 @@ Network* createNetwork(int *neuronLayers, dataSet *data, int layers) {
 void trainNetwork(Network *net, dataSet *data) {
 
     //All varibles needed later
-    float eTotal = 0, eTrainingAvg = 0, lastEAvg = 1000, hiddenError = 0, scale = 0, currentGradient = 0, loops = 0, correctedA, correctedB = 0, weightLength = 0;
+    float eTotal = 0, eTrainingAvg = 0, lastEAvg = 1000, currentGradient = 0, loops = 0, correctedA, correctedB = 0, weightLength = 0;
 
-    //START TIMING
+    //Start Clock
     clock_t start = clock();
 
     //Network Training Loop
@@ -363,7 +363,7 @@ void trainNetwork(Network *net, dataSet *data) {
 
                             break;
                         
-                        //If no activation function, derivative = 1;
+                        //If no activation function, derivative *= 1;
                     }
                 }
             }
@@ -397,6 +397,7 @@ void trainNetwork(Network *net, dataSet *data) {
 
                         //RMSProp Optimizer
                         case 'R':
+
                             //Calculate 2nd moment
                             net->ScalingB[j][k] = net->scalingDecay * net->ScalingB[j][k] + (1 - net->scalingDecay) * net->D[j][k] * net->D[j][k];
 
@@ -488,7 +489,7 @@ void trainNetwork(Network *net, dataSet *data) {
         }
 
         //Calculate Average Error for Epoch
-        eTrainingAvg = eTrainingAvg / data->trainingSize * 100;
+        eTrainingAvg = eTrainingAvg * 100 / data->trainingSize;
 
         //Mark continuous timing and calculate total runtime
         clock_t end = clock();
@@ -500,11 +501,6 @@ void trainNetwork(Network *net, dataSet *data) {
             //Print Epoch, Average Error, Runtime, and Result
             printf("Epoch: %i | Average Error: %.4f | Runtime: %.1f | Result: %.4f | Expected: %.4f | Total Error: %.4f \n", epoch, eTrainingAvg, runtime * 1000, net->Z[net->layers - 1][0], data->y[0], eTotal);
 
-            //for (int j = 0; j < net->layers; j++) {
-            //   for (int k = 0; k < neuronLayers[j]; k++) {
-            //        printf("D[%d][%d] = %.6f | W[%d][%d][0] = %.6f\n", j, k, net->D[j][k], j, k, net->W[j][k][0]);
-            //    }
-            //}
         }
 
         //Stop early if error improvement is less than 0.001 and using early stopping
